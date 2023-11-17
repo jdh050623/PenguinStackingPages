@@ -1,0 +1,341 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>펭귄쌓기</title>
+    <script src="/phaser.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.9/dat.gui.min.js"></script> 
+</head>
+<body>
+    <script type="text/javascript">
+    class Example extends Phaser.Scene
+    {
+        constructor ()
+        {
+            super();
+        }
+
+        preload()//데이터를 불러 올 떄 사용하는 함수
+        {
+            this.load.image('fishBun', 'assets/fishBun.png');
+            this.load.image('fishBunArrow', 'assets/fishBunArrow.png');
+            this.load.image('bubbleTime', 'assets/bubbleTime.png');
+            this.load.image('time', 'assets/time.png');
+            this.load.image('rainbow', 'assets/rainbow.png'); 
+            this.load.image('sky', 'assets/sky.png'); 
+            this.load.image('ground', 'assets/platform.png'); 
+            this.load.image('jumpPenguin', 'assets/jumpPenguin.png'); 
+            this.load.image('bubblePenguin', 'assets/bubblePenguin.png');
+            this.load.image('dummyPenguin', 'assets/penguin.png'); 
+        }
+
+        create()//처음 게임을 실행할 떄 수행되는 함수
+        {   
+            cursors = this.input.keyboard.createCursorKeys();
+            this.sky = this.add.tileSprite(400, 300, 0, 0, 'sky').setScrollFactor(0, 0);
+
+            var ground = this.physics.add.sprite(400, 650, 'ground').setScale(2);
+            ground.body.pushable = false;
+
+            const rainbowContainer = this.add.container(400, 300);
+            const rainbow1 = this.physics.add.sprite(382, 0, 'rainbow');
+            const rainbow2 = this.physics.add.sprite(-382, 0, 'rainbow');
+            rainbowContainer.add([ rainbow1, rainbow2]);
+
+            rainbow1.body.pushable = false;//안밀리게
+            rainbow2.body.pushable = false;
+
+            dummyPenguin = this.physics.add.sprite(400, 550, 'dummyPenguin').setScale(1/6).setImmovable();
+
+            bubblePenguin = this.physics.add.sprite(200,this.cameras.main.height-55, 'bubblePenguin').setScale(1/6);
+            bubblePenguin.body.velocity.set(600, 0);
+            bubblePenguin.body.bounce.set(1);
+            bubblePenguin.setInteractive();
+            bubblePenguin.enableBody=true;
+
+            bubbleTime = this.physics.add.sprite(200,this.cameras.main.height - 380, 'bubbleTime').setScale(1/3).setAlpha(0);
+            bubbleTime.body.velocity.set(300, 0);
+            bubbleTime.body.bounce.set(1);
+            bubbleTime.setInteractive();
+            bubbleTime.enableBody=true;
+
+            this.physics.add.collider(bubblePenguin, rainbow1); // 충돌 가능하게
+            this.physics.add.collider(bubblePenguin, rainbow2);
+            this.physics.add.collider(bubbleTime, rainbow1);
+            this.physics.add.collider(bubbleTime, rainbow2);
+
+            bubblePenguin.on('pointerdown', function(){// 버블펭귄 클릭했을 때
+                if(gameState === 1){ 
+                jumpPenguin= this.physics.add.sprite(bubblePenguin.x, bubblePenguin.y, 'jumpPenguin').setScale(1/6);
+                jumpPenguin.setVelocityY(-600) .setGravityY(600);
+                jumpPenguin.body.onCollide = true;
+                bubblePenguin.setAlpha(0);//투명화
+                bubbleTimeClick = false;
+
+                if(fishBun != null)
+                {
+                    this.physics.add.overlap(fishBun, jumpPenguin);
+                }
+
+                this.time.addEvent({ //딜레이 주기
+                    delay: 1000,
+                    callback: ()=>{
+                    // 딜레이 후 행동
+                    
+                    this.physics.add.collider(jumpPenguin, dummyPenguin);
+                    this.physics.add.collider(jumpPenguin, ground); 
+                    //jumpPenguin.setTint(0xf500ff3600); 색 바꾸기
+                    },
+                });}
+            }, this);
+ 
+            bubbleTime.on('pointerdown', function(){// 버블타임을 클릭했을 때
+                if(gameState === 1){ 
+                    if(bubbleTimeClick == true)
+                    {
+                        time = this.physics.add.sprite(bubbleTime.x, bubbleTime.y, 'time').setScale(1/3).setGravityY(1000);
+                        time.body.onOverlap = true;
+                        time.body.pushable = false;
+                        this.physics.add.overlap(time, bubblePenguin);
+                        bubbleTime.setAlpha(0);
+                        this.time.addEvent({ //딜레이 주기
+                            delay: 2000,
+                            callback: ()=>{
+                            // 딜레이 후 행동
+                            time.destroy();
+                            },
+                        });
+                    }
+                }
+            },this);
+
+            this.physics.world.on('overlap', (gameObject1, gameObject2) =>
+            {
+                if(gameObject1 == time){
+                    time.destroy();
+                    if(gameObject2 == bubblePenguin)
+                    {
+                       second = second + 30;
+                    }
+                }
+            
+                if(gameObject1 == fishBun)
+                {
+                    fishBun.destroy();
+                    score += 100;
+                    scoreText.setText('Score: ' + score);
+                }
+            });
+        
+            this.physics.world.on('collide', (gameObject1, gameObject2) =>
+            {
+                //충돌시 발생
+
+                if(gameObject1 == jumpPenguin )
+                {
+                    jumpPenguin.destroy();
+                    bubblePenguin.setAlpha(1);
+                    bubbleTimeClick = true;
+                    if(gameObject2 == dummyPenguin)
+                    {
+                        dummyPenguin = this.physics.add.sprite(jumpPenguin.x, jumpPenguin.y, 'dummyPenguin').setScale(1/6).setImmovable();
+                        cam.scrollY -= 100;
+                        scoreText.y = cam.scrollY + 16;
+                        this.textSecond.y = cam.scrollY + 35;
+                        this.textGameOver.y = cam.scrollY + 250;
+                        this.textReady.y = cam.scrollY + 300;
+                        maxScoreText.y = cam.scrollY + 200;
+                        bubblePenguin.y = cam.scrollY + 545;
+                        bubbleTime.y = cam.scrollY + 220;
+                        rainbowContainer.y = cam.scrollY + 300;
+                        penguinCount += 1;
+                        score += 10;
+                        scoreText.setText('Score: ' + score);
+
+                        if(penguinCount % 10 == 0) // 추가 시간
+                        {
+                            bubbleTime.setAlpha(1);
+                            this.time.addEvent({ //딜레이 주기
+                            delay: 8000,
+                            callback: ()=>{
+                            // 딜레이 후 행동
+                            bubbleTime.setAlpha(0);
+                            },
+                            });
+                        }
+
+                        if(penguinCount % 15 == 0) // 추가 점수
+                        {
+                            if(fishBun != null)
+                            {
+                                fishBun.destroy();
+                            }
+                            var randomX = Phaser.Math.Between(100, 700);
+                            fishBun = this.physics.add.sprite(randomX, cam.scrollY - 500, 'fishBun').setScale(1/3.5);
+                            fishBunArrow = this.physics.add.sprite(fishBun.x,cam.scrollY + 75, 'fishBunArrow').setScale(1/3.5);
+                            fishBun.body.onOverlap = true;
+                        }
+
+                        if(fishBunArrow != null){
+                            fishBunArrow.y = cam.scrollY + 75; 
+                        }
+                        
+                    }else if(gameObject2 == ground)
+                    {
+                       second = second - 30;
+                    }
+                }
+                
+            });
+            //스코어
+            scoreText = this.add.text(50, 16, '점수 : 0', { font: '32px Arial', fill: '#000' });
+            maxScoreText = this.add.text(400, 200, '최고 점수 : 0', { font: '32px Arial', fill: '#000' }).setOrigin(.5);
+            maxScoreText.visible = false;
+            
+            //시간
+            
+            this.textSecond = this.add.text(400,35,"시간 : " + second + "초", { font: '32px Arial', fill: '#000'}).setOrigin(.5);
+            this.time.addEvent({
+        	delay: 1000, // 시간 단위 ms
+        	callback: () => {// delay 주기마다 수행할 로직
+                if(gameState === 1){
+                    second--;
+                }
+            },
+        	callbackScope: this, // callback 범위
+        	loop: true, // 반복 여부
+            });
+
+            //게임 준비 텍스트 출력
+            this.textReady = this.add
+            .text(400,300, "Press space to start",{ font: '25px Arial', fill: '#000'})
+            .setOrigin(.5);
+
+            //게임 오버 텍스트 출력
+            this.textGameOver = this.add
+            .text(400,250, "Game Over",{ font: '32px Arial', fill: '#000'})
+            .setOrigin(.5);
+            this.textGameOver.visible = false;
+
+            // if(this.cursorKeys.space.isDown){
+            //         this.gameState = 1;
+            //         this.textReady.visible = false;
+            //     } 
+
+		    this.controls = new Phaser.Cameras.Controls.SmoothedKeyControl({
+			camera: this.cameras.main,
+			up: cursors.up,
+			down: cursors.down,
+			acceleration: 0.06,
+			maxSpeed: .5
+		    });
+
+                const cam = this.cameras.main
+                
+                const gui = new dat.GUI();
+
+                const help = {
+                line1: 'Cursors to move'
+                }
+
+                const f1 = gui.addFolder('Camera')
+                 f1.add(cam, 'y').listen();
+                 f1.add(cam, 'scrollY').listen();
+                 f1.open();
+        }
+
+        update(time, deltaTime)
+        {
+        	this.controls.update(deltaTime);
+            var { scrollX, scrollY } = this.cameras.main;
+            this.sky.setTilePosition(scrollX, scrollY);
+            this.textSecond.setText("시간 : " + second + "초");
+
+            if(fishBun != null)
+            {
+                if(fishBun.y > fishBunArrow.y)
+                {
+                    fishBunArrow.destroy();
+                }
+            }
+
+            if(second <= 0){
+                second = 0;
+                gameState =2;
+            }
+
+            if(gameState === 1){
+                this.textReady.visible = false;
+            }
+
+            if(gameState === 0){
+                if (cursors.space.isDown)
+                {
+                    gameState = 1;
+                }
+                return;
+            }else if ( gameState === 2)// 게임 오버
+            { 
+                this.textGameOver.visible = true; 
+                this.textReady.visible = true;
+                if(maxScore < score){
+                        maxScore = score;  
+                }
+                maxScoreText.setText('최고 점수 : ' + maxScore);
+                maxScoreText.visible = true;
+                if (cursors.space.isDown)
+                {
+                    gameState = 1;
+                    this.textReady.visible = false;
+                    this.textGameOver.visible = false; 
+                    
+                    second = 100;
+                    score = 0;
+                    penguinCount = 0;
+                    this.scene.restart();
+                }
+            }
+            return;
+        }
+        }
+        const config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        parent: 'phaser-example',
+        physics: {
+            default: 'arcade',
+            arcade: { debug: false }
+        },
+        // scale: {
+        // mode: Phaser.Scale.ScaleModes.FIT
+        // },
+        scene: Example
+        };
+
+        var cursors;
+
+        var second = 100;
+        var textSecond;
+        var scoreText;
+        var score = 0;
+        var maxScore = 0;
+        var maxScoreText;
+
+        var gameOver = false;
+        var gameState = 0; //0은 게임 준비, 1은 플레이, 2는 게임오버
+        var penguinCount = 0; // 쌓인 펭귄 수
+        var bubbleTimeClick = false;// 버블펭귄이 있을때만 버블타임 클릭이 가능하게 
+
+        var fishBunArrow;
+        var fishBun;
+        var dummyPenguin;
+        var bubblePenguin;
+        var jumpPenguin;
+        var bubbleTime;
+        var time;
+        
+        const game = new Phaser.Game(config);
+    </script>
+</body>
+</html>
